@@ -1,0 +1,4 @@
+Budget alerts (e.g., warn when subscriptions exceed ₦50,000/month).
+Email/Push Notification
+Price change alerts — notify when a service increases fees.
+Upload csv file and read from it to bulk create subscriptions
