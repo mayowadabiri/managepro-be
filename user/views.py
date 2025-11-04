@@ -13,11 +13,12 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from rest_framework.authtoken.models import Token
 from datetime import datetime, timedelta
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
 class AuthViewset(viewsets.ModelViewSet):
     serializer_class = UserSerializers
+    permission_classes = [AllowAny]
 
     class Incoming(serializers.Serializer):
         email = serializers.EmailField()
@@ -98,7 +99,14 @@ class AuthViewset(viewsets.ModelViewSet):
             {"message": "Resend Successful"}, status=status.HTTP_201_CREATED
         )
 
-    @action(detail=False, methods=["post"], url_path="login", url_name="login")
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="login",
+        url_name="login",
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+    )
     def login(self, request):
         srlz = self.Incoming(data=request.data)
         if srlz.is_valid():

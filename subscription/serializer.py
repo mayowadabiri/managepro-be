@@ -19,9 +19,9 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     service = ServiceSerializer(source="service_id", read_only=True)
     service_name = serializers.CharField(write_only=True, required=False)
     service_logo = serializers.FileField(write_only=True, required=False)
-    categories = CategorySerializer(source="category_ids", many=True, read_only=True)
-    category_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), many=True, write_only=True, required=False
+    category = CategorySerializer(source="category_id", read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), write_only=True, required=False
     )
 
     class Meta:
@@ -46,14 +46,14 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "is_trial",
             "service_name",
             "service_logo",
-            "categories",
-            "category_ids",
+            "category",
+            "category_id",
         ] + read_only_fields
 
     def create(self, validated_data):
+        print(validated_data)
         service_name = validated_data.pop("service_name", None)
         service_id = validated_data.pop("service_id", None)
-        category_ids = validated_data.pop("category_ids", [])
         if service_name:
             file = self.context["request"].FILES.get("service_logo", None)
             service_details = {
@@ -73,6 +73,5 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             )
 
         subscription = Subscription.objects.create(service_id=service, **validated_data)
-        if len(category_ids) > 0:
-            subscription.category_ids.set(category_ids)
+
         return subscription

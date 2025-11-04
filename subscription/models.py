@@ -5,13 +5,6 @@ import uuid
 from django.utils import timezone
 
 
-class Category(models.Model):
-    name = models.CharField(max_length=256)
-    created_at = models.DateField(auto_now_add=True)
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
-    is_predefined = models.BooleanField(default=False)
-
-
 CURRENCY_CHOICES = [
     ("NGN", "Naira"),
     ("USD", "US Dollar"),
@@ -31,6 +24,13 @@ class SubscriptionStatus(models.TextChoices):
     TO_EXPIRE = "to_expire", "To Expire"
     EXPIRED = "expired", "Expired"
     CANCELLED = "cancelled", "Cancelled"
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=256)
+    created_at = models.DateField(auto_now_add=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+    is_predefined = models.BooleanField(default=False)
 
 
 class Subscription(models.Model):
@@ -54,9 +54,17 @@ class Subscription(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     trial_start_date = models.DateField(blank=True, null=True)
     trial_end_date = models.DateField(blank=True, null=True)
+    trial_billing_cycle = models.CharField(
+        max_length=20, choices=BillingCycle.choices, default=BillingCycle.MONTHLY
+    )
     is_trial = models.BooleanField(default=False)
-    category_ids = models.ManyToManyField(
-        Category, blank=True, related_name="subscriptions"
+    category_id = models.ForeignKey(
+        Category,
+        blank=True,
+        related_name="subscriptions",
+        on_delete=models.CASCADE,
+        default=None,
+        null=True,
     )
 
     @property
