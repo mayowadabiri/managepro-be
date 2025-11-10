@@ -15,7 +15,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     service_id = serializers.PrimaryKeyRelatedField(
         queryset=Service.objects.all(), required=False, write_only=True
     )
-    trial_end_day = serializers.ReadOnlyField(source="get_trial_end_day")
+    days_left = serializers.ReadOnlyField(source="get_days_left")
     service = ServiceSerializer(source="service_id", read_only=True)
     service_name = serializers.CharField(write_only=True, required=False)
     service_logo = serializers.FileField(write_only=True, required=False)
@@ -30,7 +30,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "service_id",
-            "trial_end_day",
+            "days_left",
             "uuid",
             "service",
         ]

@@ -68,13 +68,13 @@ class Subscription(models.Model):
     )
 
     @property
-    def get_trial_end_day(self):
+    def get_days_left(self):
         """
         Returns the number of days remaining until the trial ends.
         If expired, returns 0.
         """
-        if not self.trial_end_date:
+        if not self.status == SubscriptionStatus.ACTIVE:
             return 0
         today = timezone.now().date()
-        delta = self.trial_end_date - today
-        return max(delta, 0)
+        delta = self.next_billing_date - today
+        return max(delta.days, 0)
