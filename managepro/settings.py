@@ -1,3 +1,5 @@
+from os import environ
+
 """
 Django settings for managepro project.
 
@@ -22,12 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-*yz(s$4r9uk@--ni_hdlwom6ef=o711aes58=2%r4v83r_7p&%"
+# SECRET_KEY = "django-insecure-*yz(s$4r9uk@--ni_hdlwom6ef=o711aes58=2%r4v83r_7p&%"
+SECRET_KEY = environ.get("SECRET_KEY", "")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = environ.get("ALLOWED_HOST", "").split(",")
 
 
 # Application definition
@@ -211,11 +214,7 @@ CELERY_BEAT_SCHEDULE = {
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite
-    "http://localhost:3000",  # Create React App
-]
-SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = False
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = environ.get("SESSION_COOKIE_SECURE", "False") == "True"
+CSRF_COOKIE_SECURE = environ.get("CSRF_COOKIE_SECURE", "False") == "True"
