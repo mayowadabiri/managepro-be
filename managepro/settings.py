@@ -1,4 +1,7 @@
-from os import environ
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
 
 """
 Django settings for managepro project.
@@ -18,7 +21,9 @@ from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
+from os import environ
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -89,13 +94,14 @@ WSGI_APPLICATION = "managepro.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "managepro",
-        "USER": "django_user",
-        "PASSWORD": "Dev.Dabiri1",
-        "HOST": "localhost",
+        "HOST": environ.get("POSTGRES_HOST", "localhost"),
+        "PASSWORD": environ.get("POSTGRES_PASSWORD", ""),
+        "USER": "didero",
+        "NAME": environ.get("POSTGRES_DB", "didero"),
         "PORT": "5432",
     }
 }
