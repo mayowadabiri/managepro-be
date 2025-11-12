@@ -25,6 +25,8 @@ load_dotenv(BASE_DIR / ".env")
 
 from os import environ
 
+
+APP_URL = "https://app.dabiri.xyz"
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -220,7 +222,7 @@ CELERY_BEAT_SCHEDULE = {
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000", APP_URL]
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = environ.get("SESSION_COOKIE_SECURE", "False") == "True"
 CSRF_COOKIE_SECURE = environ.get("CSRF_COOKIE_SECURE", "False") == "True"
