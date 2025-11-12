@@ -4,6 +4,6 @@ cd /home/ec2-user/managepro
 
 source .venv/bin/activate
 
-sudo uv sync
+uv sync
 
 make migrate
