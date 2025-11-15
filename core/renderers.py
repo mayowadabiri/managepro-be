@@ -13,12 +13,11 @@ class CustomJSONRenderer(CamelCaseJSONRenderer):
         if response is not None and response.status_code >= 400:
             formatted = {
                 "success": False,
-                "message": (
-                    data.get("detail")
-                    if isinstance(data, dict) and "detail" in data
-                    else "Error"
+                "message": data.get(
+                    "message", "Error processing your request, Please try again"
                 ),
-                "errors": data,
+                "errors": data.get("errors", None),
+                "code": data.get("code", None),
             }
         else:
             formatted = {

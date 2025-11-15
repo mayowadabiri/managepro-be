@@ -151,13 +151,21 @@ class AuthViewset(viewsets.ModelViewSet):
 
         user = User.objects.filter(email__iexact=email).first()
 
+        if user is None:
+            # Create New User
+            pass
+
         if user.provider != "google":
+            # User provider is local
             return Response(
                 {
                     "code": "ACCOUNT_EXISTS_NEEDS_LINKING",
                     "message": "An account with this email already exists. Link it by entering your password or verify via email.",
-                }
+                },
+                status=status.HTTP_409_CONFLICT,
             )
+        else:
+            pass
 
         return Response({"message": True})
 
