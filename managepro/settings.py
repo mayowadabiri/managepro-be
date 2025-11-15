@@ -226,3 +226,6 @@ CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000", APP_UR
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = environ.get("SESSION_COOKIE_SECURE", "False") == "True"
 CSRF_COOKIE_SECURE = environ.get("CSRF_COOKIE_SECURE", "False") == "True"
+
+
+GOOGLE_CLIENT_ID = environ.get("GOOGLE_CLIENT_ID")
