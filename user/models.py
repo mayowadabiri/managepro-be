@@ -38,17 +38,16 @@ class User(AbstractUser):
     email = models.EmailField(blank=False, unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     uuid = models.UUIDField(unique=True, editable=False, default=uuid.uuid4)
-    password = models.CharField(max_length=128, blank=False)
+    password = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_verified = models.BooleanField(default=False)
     notify_days_before = models.PositiveIntegerField(default=7)
     provider = models.CharField(max_length=256, blank=True, null=True, default="local")
     provider_id = models.CharField(max_length=256, blank=True, null=True)
-    image_url = models.ImageField(
+    image_url = models.URLField(
         blank=True,
         null=True,
-        upload_to=user_image_path,
     )
 
     USERNAME_FIELD = "email"

@@ -27,13 +27,10 @@ class AuthViewset(viewsets.ModelViewSet):
         password = serializers.CharField(max_length=16)
 
     def create(self, request):
-        print(request.data)
         serializer = self.get_serializer(data=request.data)
-        print(serializer)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         code = user.generate_user_code()
-        print(code.code)
         email = serializer.data.get("email")
         message = f"Hi there, thanks for registering with us! Your verification code is {code.code}."
         subject = "Welcome to ManagePro 🎉"
@@ -142,18 +139,28 @@ class AuthViewset(viewsets.ModelViewSet):
     )
     def loginByGoogle(self, request):
         credential = request.data.get("credential", None)
-        request = requests.Request()
+        google_request = requests.Request()
         user_info = id_token.verify_oauth2_token(
-            credential, request, audience=settings.GOOGLE_CLIENT_ID
+            credential, request=google_request, audience=settings.GOOGLE_CLIENT_ID
         )
-
         email = user_info.get("email")
 
         user = User.objects.filter(email__iexact=email).first()
 
         if user is None:
             # Create New User
-            pass
+            user_data = {
+                "provider_id": user_info.get("sub"),
+                "provider": "google",
+                "first_name": user_info.get("given_name"),
+                "last_name": user_info.get("family_name"),
+                "email": email,
+                "is_verified": True,
+                "image_url": user_info.get("picture"),
+            }
+            new_user = User.objects.create(**user_data)
+            token, _ = Token.objects.get_or_create(user=new_user)
+            return Response({"token": token.key})
 
         if user.provider != "google":
             # User provider is local
@@ -164,10 +171,11 @@ class AuthViewset(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-        else:
-            pass
 
-        return Response({"message": True})
+        Token.objects.filter(user=user).delete()
+        token, _ = Token.objects.get_or_create(user=user)
+        response = Response({"token": token.key})
+        return response
 
 
 class UserViewSet(viewsets.ModelViewSet):
