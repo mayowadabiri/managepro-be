@@ -6,6 +6,14 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+def user_image_path(instance, filename):
+    ext = filename.split(".")[-1]
+
+    new_filename = f"{instance.name}-{instance.uuid}.{ext}"
+
+    return f"{instance.uuid}/{new_filename}"
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -35,6 +43,13 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
     is_verified = models.BooleanField(default=False)
     notify_days_before = models.PositiveIntegerField(default=7)
+    provider = models.CharField(max_length=256, blank=True, null=True, default="local")
+    provider_id = models.CharField(max_length=256, blank=True, null=True)
+    image_url = models.ImageField(
+        blank=True,
+        null=True,
+        upload_to=user_image_path,
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]

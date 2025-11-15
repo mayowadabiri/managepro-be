@@ -14,6 +14,8 @@ from django.contrib.auth import login
 from rest_framework.authtoken.models import Token
 from datetime import datetime, timedelta
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 
 class AuthViewset(viewsets.ModelViewSet):
@@ -134,6 +136,30 @@ class AuthViewset(viewsets.ModelViewSet):
             response = Response({"token": token.key})
 
             return response
+
+    @action(
+        detail=False, methods=["post"], url_path="google-login", url_name="login_google"
+    )
+    def loginByGoogle(self, request):
+        credential = request.data.get("credential", None)
+        request = requests.Request()
+        user_info = id_token.verify_oauth2_token(
+            credential, request, audience=settings.GOOGLE_CLIENT_ID
+        )
+
+        email = user_info.get("email")
+
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user.provider != "google":
+            return Response(
+                {
+                    "code": "ACCOUNT_EXISTS_NEEDS_LINKING",
+                    "message": "An account with this email already exists. Link it by entering your password or verify via email.",
+                }
+            )
+
+        return Response({"message": True})
 
 
 class UserViewSet(viewsets.ModelViewSet):

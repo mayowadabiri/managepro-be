@@ -15,9 +15,11 @@ dependencies = [
     "djangorestframework-camel-case>=1.4.2",
     "djangorestframework-simplejwt>=5.5.1",
     "djangorestframework>=3.16.1",
+    "google-auth>=2.43.0",
     "pillow>=11.3.0",
     "psycopg[binary]>=3.2.10",
     "python-dotenv>=1.2.1",
     "redis>=5.2.1",
+    "requests>=2.32.5",
     "uuid>=1.30",
 ]
