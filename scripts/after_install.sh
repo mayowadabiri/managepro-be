@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# after_install.sh — idempotent deploy helper for managepro
+# after_install.sh — idempotent deploy helper for managepro (CodeDeploy AfterInstall)
 set -euo pipefail
 
 LOG=/home/ec2-user/managepro/deploy-afterinstall.log
@@ -11,26 +11,25 @@ VENV_BIN_DIR="$VENV_DIR/bin"
 echo "=== AfterInstall started at $(date -u) ===" | tee -a "$LOG"
 cd "$APP_DIR"
 
-# --- ensure python3 exists ---
+# ensure python3 exists
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "ERROR: python3 not found on PATH" | tee -a "$LOG"
+  echo "ERROR: python3 not found" | tee -a "$LOG"
   exit 1
 fi
-
 PYTHON3=$(command -v python3)
 echo "Using system python: $PYTHON3" | tee -a "$LOG"
 
-# --- ensure venv exists ---
+# create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
   echo "Creating virtualenv at $VENV_DIR using $PYTHON3" | tee -a "$LOG"
   "$PYTHON3" -m venv "$VENV_DIR"
 fi
 
-# Activate venv for the duration of this script
+# activate venv
 # shellcheck disable=SC1091
 source "$VENV_BIN_DIR/activate"
 
-# --- bootstrap pip in venv if missing ---
+# bootstrap pip if missing (ensurepip -> get-pip fallback)
 if ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
   echo "pip missing inside venv — attempting ensurepip" | tee -a "$LOG"
   if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
@@ -51,22 +50,22 @@ if ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
   fi
 fi
 
-# verify pip now available
+# verify pip
 if ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
-  echo "ERROR: pip still not available in venv after bootstrap" | tee -a "$LOG"
+  echo "ERROR: pip not available in venv after bootstrap" | tee -a "$LOG"
   exit 1
 fi
 
-# --- upgrade packaging tools ---
+# upgrade packaging tools (best-effort)
 echo "Upgrading pip/setuptools/wheel in venv" | tee -a "$LOG"
 "$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null 2>&1 || {
   echo "WARNING: pip upgrade failed (continuing)" | tee -a "$LOG"
 }
 
-# --- install uv (optional) and choose sync command ---
-echo "Installing uv (if used) into venv" | tee -a "$LOG"
+# install uv (optional) and pick sync command
+echo "Installing uv (if used) into venv (non-fatal)" | tee -a "$LOG"
 "$VENV_PYTHON" -m pip install --upgrade uv >/dev/null 2>&1 || {
-  echo "uv install failed or not needed (continuing)" | tee -a "$LOG"
+  echo "uv installation failed or not required (continuing)" | tee -a "$LOG"
 }
 
 UV_BIN="$VENV_BIN_DIR/uv"
@@ -76,9 +75,8 @@ else
   UV_CMD="$VENV_PYTHON -m uv"
 fi
 
-# --- dependency sync: try uv sync but always ensure requirements/gunicorn after ---
+# dependency sync (do not fail entire deploy if uv sync fails)
 echo "Running dependency sync: $UV_CMD sync" | tee -a "$LOG" || true
-# run it but do not fail whole script if uv sync fails (we'll still ensure deps below)
 set +e
 $UV_CMD sync | tee -a "$LOG"
 UV_EXIT=$?
@@ -87,22 +85,25 @@ if [ "$UV_EXIT" -ne 0 ]; then
   echo "uv sync returned $UV_EXIT (continuing to explicit installs)" | tee -a "$LOG"
 fi
 
-# --- ensure runtime packages in venv: prefer requirements.txt if present ---
-echo "Ensuring runtime dependencies in venv" | tee -a "$LOG"
-if [ -f "$APP_DIR/requirements.txt" ]; then
-  echo "Installing from requirements.txt" | tee -a "$LOG"
-  "$VENV_PYTHON" -m pip install --upgrade -r "$APP_DIR/requirements.txt" | tee -a "$LOG"
-else
-  echo "requirements.txt not found — ensuring gunicorn present" | tee -a "$LOG"
-  "$VENV_PYTHON" -m pip install --upgrade gunicorn | tee -a "$LOG"
-fi
+# ensure runtime packages in venv — since you use uv, ensure gunicorn + packaging tools explicitly
+echo "Ensuring pip/setuptools/wheel and gunicorn are present in venv" | tee -a "$LOG"
+"$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel gunicorn | tee -a "$LOG"
 
-# --- run django migrations (use venv python) ---
-echo "Running Django migrations" | tee -a "$LOG"
+# run Django migrations (non-fatal)
+echo "Running Django migrations (manage.py migrate --noinput)" | tee -a "$LOG"
 set +e
 "$VENV_PYTHON" manage.py migrate --noinput | tee -a "$LOG"
 MIG_EXIT=$?
 set -e
 if [ $MIG_EXIT -ne 0 ]; then
-  echo "Migrations reported exit $MIG_EXIT; check logs above" | tee -a "$LOG"
+  echo "Migrations exit code $MIG_EXIT — please inspect logs" | tee -a "$LOG"
 fi
+
+# final systemd housekeeping & restart gunicorn safely
+echo "Reset failed state and restarting gunicorn.service" | tee -a "$LOG"
+sudo systemctl reset-failed gunicorn.service || true
+sudo systemctl daemon-reload || true
+sudo systemctl restart gunicorn.service || true
+sudo systemctl enable gunicorn.service || true
+
+echo "=== AfterInstall completed at $(date -u) ===" | tee -a "$LOG"
