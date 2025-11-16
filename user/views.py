@@ -135,7 +135,12 @@ class AuthViewset(viewsets.ModelViewSet):
             return response
 
     @action(
-        detail=False, methods=["post"], url_path="google-login", url_name="login_google"
+        detail=False,
+        methods=["post"],
+        url_path="google-login",
+        url_name="login_google",
+        permission_classes=[AllowAny],
+        authentication_classes=[],
     )
     def loginByGoogle(self, request):
         credential = request.data.get("credential", None)
