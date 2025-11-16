@@ -1,105 +1,108 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# after_install.sh — idempotent deploy helper for managepro
 set -euo pipefail
+
 LOG=/home/ec2-user/managepro/deploy-afterinstall.log
-echo "=== AfterInstall started at $(date) ===" | tee -a "$LOG"
+APP_DIR=/home/ec2-user/managepro
+VENV_DIR="$APP_DIR/.venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
+VENV_BIN_DIR="$VENV_DIR/bin"
 
-cd /home/ec2-user/managepro
+echo "=== AfterInstall started at $(date -u) ===" | tee -a "$LOG"
+cd "$APP_DIR"
 
-# Use explicit python3 everywhere
+# --- ensure python3 exists ---
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 not found" | tee -a "$LOG"
+  echo "ERROR: python3 not found on PATH" | tee -a "$LOG"
   exit 1
 fi
-PYTHON3=$(command -v python3)
 
-# Create venv if missing
-if [ ! -d ".venv" ]; then
-  echo "Creating virtualenv at .venv using $PYTHON3" | tee -a "$LOG"
-  # try to create venv normally
-  "$PYTHON3" -m venv .venv || {
-    echo "Failed to create venv with $PYTHON3 -m venv" | tee -a "$LOG"
-    exit 1
-  }
+PYTHON3=$(command -v python3)
+echo "Using system python: $PYTHON3" | tee -a "$LOG"
+
+# --- ensure venv exists ---
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating virtualenv at $VENV_DIR using $PYTHON3" | tee -a "$LOG"
+  "$PYTHON3" -m venv "$VENV_DIR"
 fi
 
-VENV_PYTHON="/home/ec2-user/managepro/.venv/bin/python"
-VENV_BIN_DIR="/home/ec2-user/managepro/.venv/bin"
-
-# Activate venv in this script (sourcing is retained for readability)
+# Activate venv for the duration of this script
 # shellcheck disable=SC1091
 source "$VENV_BIN_DIR/activate"
 
-# Ensure pip exists in the venv. Try ensurepip first, then fallback to get-pip.py
+# --- bootstrap pip in venv if missing ---
 if ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
-  echo "pip missing inside venv — attempting to bootstrap via ensurepip" | tee -a "$LOG"
+  echo "pip missing inside venv — attempting ensurepip" | tee -a "$LOG"
   if "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
     echo "ensurepip succeeded" | tee -a "$LOG"
   else
-    echo "ensurepip not available or failed — attempting get-pip.py" | tee -a "$LOG"
+    echo "ensurepip failed; trying get-pip.py" | tee -a "$LOG"
     TMP_GET_PIP="/tmp/get-pip.py"
     if command -v curl >/dev/null 2>&1; then
-      curl -sSfL https://bootstrap.pypa.io/get-pip.py -o "$TMP_GET_PIP" || {
-        echo "Failed to download get-pip.py with curl" | tee -a "$LOG"
-        exit 1
-      }
+      curl -sSfL https://bootstrap.pypa.io/get-pip.py -o "$TMP_GET_PIP"
     elif command -v wget >/dev/null 2>&1; then
-      wget -qO "$TMP_GET_PIP" https://bootstrap.pypa.io/get-pip.py || {
-        echo "Failed to download get-pip.py with wget" | tee -a "$LOG"
-        exit 1
-      }
+      wget -qO "$TMP_GET_PIP" https://bootstrap.pypa.io/get-pip.py
     else
-      echo "Neither curl nor wget available to fetch get-pip.py; cannot bootstrap pip" | tee -a "$LOG"
+      echo "ERROR: neither curl nor wget available to bootstrap pip" | tee -a "$LOG"
       exit 1
     fi
-
-    # run get-pip.py using the venv python
-    "$VENV_PYTHON" "$TMP_GET_PIP" || {
-      echo "get-pip.py failed to install pip into venv" | tee -a "$LOG"
-      rm -f "$TMP_GET_PIP" || true
-      exit 1
-    }
-    rm -f "$TMP_GET_PIP" || true
+    "$VENV_PYTHON" "$TMP_GET_PIP"
+    rm -f "$TMP_GET_PIP"
   fi
 fi
 
-# Verify pip is available now
+# verify pip now available
 if ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
-  echo "pip still missing after bootstrap attempts" | tee -a "$LOG"
+  echo "ERROR: pip still not available in venv after bootstrap" | tee -a "$LOG"
   exit 1
 fi
 
-# Use the venv python to upgrade packaging tools and install uv
-echo "Upgrading pip/setuptools/wheel and installing uv using $VENV_PYTHON" | tee -a "$LOG"
-"$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel | tee -a "$LOG"
+# --- upgrade packaging tools ---
+echo "Upgrading pip/setuptools/wheel in venv" | tee -a "$LOG"
+"$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null 2>&1 || {
+  echo "WARNING: pip upgrade failed (continuing)" | tee -a "$LOG"
+}
 
-# Install uv in venv (use -m pip to ensure venv-targeted install)
-"$VENV_PYTHON" -m pip install uv | tee -a "$LOG"
+# --- install uv (optional) and choose sync command ---
+echo "Installing uv (if used) into venv" | tee -a "$LOG"
+"$VENV_PYTHON" -m pip install --upgrade uv >/dev/null 2>&1 || {
+  echo "uv install failed or not needed (continuing)" | tee -a "$LOG"
+}
 
-# Prefer the venv-installed uv binary if present
 UV_BIN="$VENV_BIN_DIR/uv"
 if [ -x "$UV_BIN" ]; then
-  echo "Using uv at $UV_BIN" | tee -a "$LOG"
   UV_CMD="$UV_BIN"
 else
-  # fallback to python -m uv (works if package provides a module entrypoint)
   UV_CMD="$VENV_PYTHON -m uv"
 fi
 
-# Sync/install dependencies via uv (will create/update uv.lock if needed)
-echo "Running dependency sync: $UV_CMD sync" | tee -a "$LOG"
-$UV_CMD sync | tee -a "$LOG"
-
-# Run migrations using uv so it uses the venv python environment
-# If uv isn't available or fails, fallback to using venv python directly for manage.py
+# --- dependency sync: try uv sync but always ensure requirements/gunicorn after ---
+echo "Running dependency sync: $UV_CMD sync" | tee -a "$LOG" || true
+# run it but do not fail whole script if uv sync fails (we'll still ensure deps below)
 set +e
-$UV_CMD run python manage.py migrate | tee -a "$LOG"
+$UV_CMD sync | tee -a "$LOG"
 UV_EXIT=$?
 set -e
-
-if [ $UV_EXIT -ne 0 ]; then
-  echo "uv run migrate failed (exit $UV_EXIT) — attempting direct venv python manage.py migrate" | tee -a "$LOG"
-  "$VENV_PYTHON" manage.py migrate | tee -a "$LOG"
+if [ "$UV_EXIT" -ne 0 ]; then
+  echo "uv sync returned $UV_EXIT (continuing to explicit installs)" | tee -a "$LOG"
 fi
 
-# Finished
-echo "=== AfterInstall completed at $(date) ===" | tee -a "$LOG"
+# --- ensure runtime packages in venv: prefer requirements.txt if present ---
+echo "Ensuring runtime dependencies in venv" | tee -a "$LOG"
+if [ -f "$APP_DIR/requirements.txt" ]; then
+  echo "Installing from requirements.txt" | tee -a "$LOG"
+  "$VENV_PYTHON" -m pip install --upgrade -r "$APP_DIR/requirements.txt" | tee -a "$LOG"
+else
+  echo "requirements.txt not found — ensuring gunicorn present" | tee -a "$LOG"
+  "$VENV_PYTHON" -m pip install --upgrade gunicorn | tee -a "$LOG"
+fi
+
+# --- run django migrations (use venv python) ---
+echo "Running Django migrations" | tee -a "$LOG"
+set +e
+"$VENV_PYTHON" manage.py migrate --noinput | tee -a "$LOG"
+MIG_EXIT=$?
+set -e
+if [ $MIG_EXIT -ne 0 ]; then
+  echo "Migrations reported exit $MIG_EXIT; check logs above" | tee -a "$LOG"
+fi

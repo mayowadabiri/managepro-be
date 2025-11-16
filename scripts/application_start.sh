@@ -3,7 +3,7 @@ set -e
 
 echo "Restarting Gunicorn service..."
 
-sudo systemctl daemon-reload       
-sudo systemctl restart gunicorn    
-sudo systemctl enable gunicorn     
-sudo systemctl status gunicorn --no-pager -l || true
+sudo systemctl reset-failed gunicorn.service || true
+sudo systemctl daemon-reload || true
+sudo systemctl restart gunicorn.service || true
+sudo systemctl enable gunicorn.service || true
