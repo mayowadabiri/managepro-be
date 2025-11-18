@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, UserProvider
 from django.contrib.auth.hashers import make_password
 
 
@@ -44,4 +44,11 @@ class UserSerializers(serializers.ModelSerializer):
         password = validated_data["password"]
         validated_data["password"] = make_password(password)
         user = super().create(validated_data)
+        provider_payload = {
+            "provider": "local",
+            "provider_id": f"local-{user.uuid}",
+            "user_id": user,
+            "provider_email": user.email,
+        }
+        UserProvider.objects.create(**provider_payload)
         return user

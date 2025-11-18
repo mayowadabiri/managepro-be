@@ -4,6 +4,7 @@ import uuid
 import secrets
 from django.utils import timezone
 from datetime import timedelta
+from core.secrets import hash_otp
 
 
 def user_image_path(instance, filename):
@@ -43,8 +44,6 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
     is_verified = models.BooleanField(default=False)
     notify_days_before = models.PositiveIntegerField(default=7)
-    provider = models.CharField(max_length=256, blank=True, null=True, default="local")
-    provider_id = models.CharField(max_length=256, blank=True, null=True)
     image_url = models.URLField(
         blank=True,
         null=True,
@@ -56,26 +55,41 @@ class User(AbstractUser):
     objects = UserManager()
 
     def generate_user_code(self):
-        expires_at = timezone.now() + timedelta(minutes=15)
-        code = Code.objects.create(
-            user=self, code=Code().generate_code(), expires_at=expires_at
-        )
-        return code
-
-
-class Code(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
-    used_at = models.DateTimeField(null=True, blank=True)
-    is_used = models.BooleanField(default=False)
-
-    def generate_code(self, length=6):
         """
         Generate a numeric 6-digit OTP code.
         Always zero padded to match length
         """
-        otp = secrets.randbelow(10**length)
+        expires_at = timezone.now() + timedelta(minutes=15)
+        code = secrets.randbelow(10**6)
+        paadded_code = str(code).zfill(6)
+        hashed_code = hash_otp(paadded_code)
+        Code.objects.create(user=self, code_hash=hashed_code, expires_at=expires_at)
+        return paadded_code
 
-        return str(otp).zfill(length)
+
+class Type(models.TextChoices):
+    REGISTRATION = "registration"
+    FORGOT_PASSWORD = "forgot_password"
+
+
+class Code(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_code")
+    code_hash = models.CharField(max_length=255, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    is_used = models.BooleanField(default=False)
+    type = models.CharField(
+        max_length=30, choices=Type.choices, default=Type.REGISTRATION
+    )
+    attempts = models.IntegerField(default=0)
+
+
+class UserProvider(models.Model):
+    provider = models.CharField(max_length=256, blank=True, null=True, default="local")
+    provider_id = models.CharField(max_length=256, blank=True, null=True)
+    user_id = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="user_provider"
+    )
+    provider_email = models.CharField(max_length=256)
+    linked_at = models.DateTimeField(auto_now=True)
