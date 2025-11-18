@@ -256,6 +256,13 @@ class AuthViewset(viewsets.ModelViewSet):
                 }
                 UserProvider.objects.create(user_id=new_user, **proivder_payload)
                 token, _ = Token.objects.get_or_create(user=new_user)
+                send_email(
+                    user.email,
+                    variables={
+                        "id": "register-email",
+                        "variables": {"NAME": f"{user.first_name} {user.last_name}"},
+                    },
+                )
                 return Response({"token": token.key})
 
             has_google = user.user_provider.filter(provider="google").exists()
