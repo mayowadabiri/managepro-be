@@ -235,4 +235,4 @@ RESEND_API_KEY = environ.get("RESEND_API_KEY")
 RESEND_EMAIL_FROM = "SubtrackPro Support <support@dabiri.xyz>"
 
 
-OTP_SECRET_KEY = "9e0314749b8eaaa7e251866091513d72f52e6c536f7097b336c3ba99d0741b86"
+OTP_SECRET_KEY = environ.get("OTP_SECRET_KEY")

@@ -18,9 +18,7 @@ from core.notification import send_email
 from core.secrets import hash_otp
 import hmac
 
-# MAX_ATTEMPTS = 5
-
-MAX_ATTEMPTS = getattr(settings, "OTP_MAX_ATTEMPTS", 5)
+MAX_ATTEMPTS = 5
 
 
 def invalid_credentials():
@@ -195,8 +193,6 @@ class AuthViewset(viewsets.ModelViewSet):
         methods=["post"],
         url_path="login",
         url_name="login",
-        permission_classes=[AllowAny],
-        authentication_classes=[],
     )
     def login(self, request):
         srlz = self.Incoming(data=request.data)
@@ -230,8 +226,6 @@ class AuthViewset(viewsets.ModelViewSet):
         methods=["post"],
         url_path="google-login",
         url_name="login_google",
-        permission_classes=[AllowAny],
-        authentication_classes=[],
     )
     def loginByGoogle(self, request):
         credential = request.data.get("credential", None)
