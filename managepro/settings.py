@@ -229,3 +229,10 @@ CSRF_COOKIE_SECURE = environ.get("CSRF_COOKIE_SECURE", "False") == "True"
 
 
 GOOGLE_CLIENT_ID = environ.get("GOOGLE_CLIENT_ID")
+
+RESEND_API_KEY = environ.get("RESEND_API_KEY")
+
+RESEND_EMAIL_FROM = "SubtrackPro Support <support@dabiri.xyz>"
+
+
+OTP_SECRET_KEY = environ.get("OTP_SECRET_KEY")
